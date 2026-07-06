@@ -26,7 +26,28 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Jika ingin menambahkan package baru, jalankan command berikut diterminal
+4. Setelah melakukan inisialisasi virtual environtment, salin file .env.example dan atur data-data yang kosong
+
+```bash
+cp .env.example .env
+```
+
+```.env
+MEDIA_KEYWORDS=
+KEYWORD_NATIONAL=
+KEYWORD_INTERNATIONAL=
+
+START=
+MONTHS=
+
+CATEGORY=
+LIST_MEDIA=
+MEDIA_URL=
+
+ORDERBOOK_URL=
+```
+
+5. Jika ingin menambahkan package baru, jalankan command berikut diterminal
 
 ```bash
 pip install <new-package>
