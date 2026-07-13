@@ -5,7 +5,7 @@ Project ini akan digunakan oleh **Stock-ML Prediction** untuk memprediksi kenaik
 
 Project ini masih dalam pengembangan dan dapat dioptimalisasi data nya dengan menambahkan pengumpulan data berita International (saat ini, data berita sebatas berita dalam negeri)
 
-**Installation Guide**
+**Installation Guide <STOCK-DATA-APP-DOCUMENTATION>**
 
 1. Inisialisasi virtual environtment untuk project terlebih dahulu
 
@@ -55,6 +55,8 @@ CELERY_RESULT_BACKEND=
 pip install <new-package>
 pip freeze > requirements.txt
 ```
+
+**Instalation Guide <STOCK-DATA-CELERY-DOCUMENTATION> (For Realtime and Notify newest news, orderbook, and analyze)**
 
 6. Untuk mengaktifkan fitur realtime + scheduling data yang akan dimuat setiap hari (tepatnya di jam 12), lakukan tahapan selanjutnya
 
