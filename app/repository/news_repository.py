@@ -17,7 +17,7 @@ from helper import matching, element_to_formatted_text
 
 tqdm.set_lock(RLock())
 
-class LoadNews:
+class NewsRepository:
     max_retries = 3
     EXECUTE_SCRIPT = "window.scrollTo(0, document.body.scrollHeight);"
 
@@ -30,27 +30,43 @@ class LoadNews:
         self.newest_date = {}
         self.load_news_data()
     
+    def get_news(self, stock_name):
+        if self.news is None:
+            return []
+        
+        if self.news[stock_name] is None:
+            return []
+        
+        return self.news[stock_name]
+    
     def load_news_data(self):
-        for stock in config.stocks:
-            try:
-                self.news[stock] = pd.read_csv(f'data/News/{stock}.csv')
-                if 'Unnamed: 0' in self.news[stock].columns:
-                    self.news[stock].drop('Unnamed: 0', axis=1, inplace=True)
-            except FileNotFoundError:
-                self.news[stock] = None
-                self.newest_date[stock] = None
+        if config.stocks is None or len(config.stocks) == 0:
+            self.news = None
+            self.newest_date = config.start
+        else:
+            for stock in config.stocks:
+                try:
+                    self.news[stock] = pd.read_csv(f'data/News/{stock}.csv')
+                    if 'Unnamed: 0' in self.news[stock].columns:
+                        self.news[stock].drop('Unnamed: 0', axis=1, inplace=True)
+                except FileNotFoundError:
+                    self.news[stock] = None
+                    self.newest_date[stock] = datetime.strptime(config.start, "%Y-%m-%d")
     
     def update_news_data(self):
         for stock in config.stocks:
-            if 'date' in self.news[stock].columns:
-                self.newest_date[stock] = self.news[stock]['date'].max()
+            if self.news[stock] is not None:
+                if 'date' in self.news[stock].columns:
+                    self.newest_date[stock] = self.news[stock]['date'].max()
 
-                if pd.isna(self.newest_date[stock]):
-                    self.newest_date[stock] = None
+                    if pd.isna(self.newest_date[stock]):
+                        self.newest_date[stock] = datetime.strptime(config.start, "%Y-%m-%d")
+                    else:
+                        self.newest_date[stock] = datetime.strptime(self.newest_date[stock], "%Y-%m-%d")    
                 else:
-                    self.newest_date[stock] = datetime.strptime(self.newest_date[stock], "%Y-%m-%d")    
+                    self.newest_date[stock] = datetime.strptime(config.start, "%Y-%m-%d")
             else:
-                self.newest_date[stock] = None
+                self.newest_date[stock] = datetime.strptime(config.start, "%Y-%m-%d")
 
             self.scrape_and_save_news(stock)
     
@@ -82,7 +98,10 @@ class LoadNews:
             
         new_news_list = sorted(new_news_list, key=lambda x: x['date'])
         new_news_list = pd.DataFrame(new_news_list)
-        self.news[stock_name] = pd.concat([self.news[stock_name], new_news_list], ignore_index=True)
+        if self.news[stock_name] is None:
+            self.news[stock_name] = new_news_list
+        else:
+            self.news[stock_name] = pd.concat([self.news[stock_name], new_news_list], ignore_index=True)
 
         if "link" in self.news[stock_name].columns:
             self.news[stock_name].drop('link', axis=1, inplace=True)
@@ -205,10 +224,6 @@ class LoadNews:
                     nonlocal publish_date
                     publish_date = datetime.today().strftime("%Y-%m-%d")
 
-                def match_1_error(_):
-                    nonlocal date_div, failed_all, match_2
-                    matching.matching(r'(\d{1,2})\s+(\w{3})\s+(\d{4})', date_div.text.strip(), match_2, failed_all)
-                
                 def match_2(match):
                     nonlocal publish_date
                     hari, bulan_str, tahun = match.groups()
@@ -217,6 +232,11 @@ class LoadNews:
                 def failed_all(_):
                     nonlocal success
                     success = False
+
+                def match_1_error(_):
+                    nonlocal date_div, failed_all, match_2
+                    matching.matching(r'(\d{1,2})\s+(\w{3})\s+(\d{4})', date_div.text.strip(), match_2, failed_all)
+                
 
                 matching.matching(r'(\d+)\s+(\w+)\s+yang\s+lalu', date_div.text.strip(), match_1, match_1_error)
                 
@@ -322,10 +342,6 @@ class LoadNews:
                     
                     publish_date = publish_date.strftime("%Y-%m-%d")
 
-                def match_1_error(_):
-                    nonlocal failed_all, match_2, publish_date
-                    matching.matching(r'(\d{1,2})\s+(\w{3})\s+(\d{4})', publish_date, match_2, failed_all)
-                
                 def match_2(match):
                     nonlocal publish_date
                     hari, bulan_str, tahun = match.groups()
@@ -334,6 +350,11 @@ class LoadNews:
                 def failed_all(_):
                     nonlocal success
                     success = False
+
+                def match_1_error(_):
+                    nonlocal failed_all, match_2, publish_date
+                    matching.matching(r'(\d{1,2})\s+(\w{3})\s+(\d{4})', publish_date, match_2, failed_all)
+                
 
                 matching.matching(r'\s*(\d+)\s+(\w+)\s+yang\s+lalu', publish_date, match_1, match_1_error)
                 if not success:
@@ -428,10 +449,6 @@ class LoadNews:
                         nonlocal publish_date
                         publish_date = datetime.today().strftime("%Y-%m-%d")
 
-                    def match_1_error(_):
-                        nonlocal failed_all, match_2, publish_date
-                        matching.matching(r'(\d{1,2})\s+(\w{3})\s+(\d{4})(?:\s*\|\s*(\d+):(\d+)\s+WIB)?', publish_date, match_2, failed_all)
-                    
                     def match_2(match):
                         nonlocal publish_date
                         hari, bulan_str, tahun, _, _ = match.groups()
@@ -440,6 +457,11 @@ class LoadNews:
                     def failed_all(_):
                         nonlocal success
                         success = False
+
+                    def match_1_error(_):
+                        nonlocal failed_all, match_2, publish_date
+                        matching.matching(r'(\d{1,2})\s+(\w{3})\s+(\d{4})(?:\s*\|\s*(\d+):(\d+)\s+WIB)?', publish_date, match_2, failed_all)
+                    
 
                     matching.matching(r'(\d+)\s+(\w+)\s+yang\s+lalu', publish_date, match_1, match_1_error)
                     if not success:
@@ -480,9 +502,10 @@ class LoadNews:
                     pbar_articles.update(1)
                 
             pbar_articles.close()  
+            return news
         except Exception as e:
             print(e)
-        return news
+            return []
     
     def load_tribun_news(self, category, stock_name, position):
         browser = Browser()
@@ -582,9 +605,10 @@ class LoadNews:
                     pbar_articles.update(1)
 
             pbar_articles.close()  
+            return news
         except Exception as e:
-            print(e)   
-        return news
+            print(e)
+            return []
     
     def load_idx_news(self, stock_name, position):
         browser = Browser(True)
@@ -700,10 +724,9 @@ class LoadNews:
                     pbar_articles.update(1)
             
             pbar_articles.close()
+            return news
         except Exception as e:
             print(e)
+            return []
         finally:
             browser.driver.quit()
-        return news
-    
-load_news = LoadNews()

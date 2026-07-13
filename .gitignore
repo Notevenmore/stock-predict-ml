@@ -1,6 +1,8 @@
 *.csv
 **/*.csv
 
+app/data/Models
+
 .env
 __pycache__
 venv

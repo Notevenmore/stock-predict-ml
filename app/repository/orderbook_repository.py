@@ -10,21 +10,32 @@ from selenium.webdriver.common.by import By
 
 from config import config, Browser
 
-class LoadOrderbook:
+class OrderbookRepository:
     def __init__(self):
         self.orderbook = {}
         self.newest_date = {}
         self.load_orderbook_data()
 
+    def get_orderbook(self, stock_name):
+        if self.orderbook is None:
+            return []
+        
+        if self.orderbook[stock_name] is None:
+            return []
+        
+        return self.orderbook[stock_name]
+
     def load_orderbook_data(self):
-        for stock in config.stocks:
-            try:
-                self.orderbook[stock] = pd.read_csv(f'data/OrderBook/{stock}.csv')
-                if 'Unnamed: 0' in self.orderbook[stock].columns:
-                    self.orderbook[stock].drop('Unnamed: 0', axis=1, inplace=True)
-            except FileNotFoundError:
-                self.orderbook[stock] = None
-                self.newest_date[stock] = None
+        if config.stocks is None or len(config.stocks) == 0:
+            self.orderbook = None
+        else:
+            for stock in config.stocks:
+                try:
+                    self.orderbook[stock] = pd.read_csv(f'data/OrderBook/{stock}.csv')
+                    if 'Unnamed: 0' in self.orderbook[stock].columns:
+                        self.orderbook[stock].drop('Unnamed: 0', axis=1, inplace=True)
+                except FileNotFoundError:
+                    self.orderbook[stock] = None
 
     def update_orderbook_data(self):
         for stock in config.stocks:
@@ -32,7 +43,7 @@ class LoadOrderbook:
                 self.newest_date[stock] = self.orderbook[stock]['date'].max()
 
                 if pd.isna(self.newest_date[stock]):
-                    self.newest_date[stock] = None
+                    self.newest_date[stock] = datetime.strptime(config.start, "%Y-%m-%d")
                 else:
                     self.newest_date[stock] = datetime.strptime(self.newest_date[stock], "%Y-%m-%d")    
             else:
@@ -254,5 +265,3 @@ class LoadOrderbook:
         
         self.browser[position].driver.quit()
         return orderbook
-    
-load_orderbook = LoadOrderbook()

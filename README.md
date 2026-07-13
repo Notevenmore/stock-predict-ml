@@ -5,7 +5,7 @@ Project ini akan digunakan oleh **Stock-ML Prediction** untuk memprediksi kenaik
 
 Project ini masih dalam pengembangan dan dapat dioptimalisasi data nya dengan menambahkan pengumpulan data berita International (saat ini, data berita sebatas berita dalam negeri)
 
-**Panduan Penginstalan**
+**Installation Guide**
 
 1. Inisialisasi virtual environtment untuk project terlebih dahulu
 
@@ -43,8 +43,10 @@ MONTHS=
 CATEGORY=
 LIST_MEDIA=
 MEDIA_URL=
-
 ORDERBOOK_URL=
+
+CELERY_BROKER_URL=
+CELERY_RESULT_BACKEND=
 ```
 
 5. Jika ingin menambahkan package baru, jalankan command berikut diterminal
@@ -52,4 +54,38 @@ ORDERBOOK_URL=
 ```bash
 pip install <new-package>
 pip freeze > requirements.txt
+```
+
+6. Untuk mengaktifkan fitur realtime + scheduling data yang akan dimuat setiap hari (tepatnya di jam 12), lakukan tahapan selanjutnya
+
+7. Aktifkan server redis (MacOS Only)
+
+```bash
+brew services start redis
+```
+
+Memastikan server redis telah berjalan
+
+```bash
+brew services list | grep redis
+redis-cli ping
+```
+
+Untuk menonaktifkan:
+
+```bash
+brew services stop redis
+```
+
+Untuk restart:
+
+```bash
+brew services restart redis
+```
+
+8. Untuk melakukan pengujian fitur, jalankan
+
+```bash
+cd app
+source ./test/test.sh
 ```

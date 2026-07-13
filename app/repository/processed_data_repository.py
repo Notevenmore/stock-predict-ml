@@ -1,4 +1,4 @@
-from load_data.load_news import load_news
+from .news_repository import NewsRepository
 from config import config
 
 import threading
@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import torch
+import ast
+import os
 
 from indoNLP.preprocessing import replace_slang
 from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory
@@ -15,14 +17,31 @@ from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+import joblib
 import spacy
 
-class EmbedData:
+class ProcessedDataRepository:
     def __init__(self):
-        self.news = load_news.news
+        self.news_repository = NewsRepository()
+        self.new_news = {}
         self.processed_news = {}
+        self.scaler = None
+        self.pca = None
+        
+        self._thread_local = threading.local()
+        self._stemmer = StemmerFactory().create_stemmer()
+        self._stopword = StopWordRemoverFactory().create_stop_word_remover()
         
         self.load_embedded_data()
+
+    def get_processed_news_data(self, stock_name):
+        if self.processed_news is None:
+            return []
+        
+        if self.processed_news[stock_name] is None:
+            return []
+        
+        return self.processed_news
 
     def load_embedded_data(self):
         for stock_name in config.stocks:
@@ -32,12 +51,45 @@ class EmbedData:
             except FileNotFoundError:
                 self.processed_news[stock_name] = None
 
+    def __load_new_news(self, stock_name):
+        self.new_news[stock_name] = []
+        all_processed_news = set()
+
+        if self.news_repository.news[stock_name] is None:
+            return
+        
+        if self.processed_news.get(stock_name) is None:
+            self.new_news[stock_name] = self.news_repository.news[stock_name]
+            return
+        
+        for processed in self.processed_news[stock_name]["title"]:
+            if isinstance(processed, str):
+                try:
+                    titles = ast.literal_eval(processed)
+                    if isinstance(titles, list):
+                        all_processed_news.update(titles)
+                except Exception:
+                    all_processed_news.add(processed)
+            elif isinstance(processed, list):
+                all_processed_news.update(processed)
+                
+        for _, news in self.news_repository.news[stock_name].iterrows():
+            if news["title"] not in all_processed_news:
+                self.new_news[stock_name].append(news)
+        
+        self.new_news[stock_name] = pd.DataFrame(self.new_news[stock_name])
+
     def save_embedded_data(self):
-        for stock_name in config.stocks:
-            self.embed_data_workflow(stock_name)
+        if self.news_repository.news is not None:
+            for stock_name in config.stocks:
+                self.__load_new_news(stock_name)
+                if self.new_news[stock_name] is not None and not self.new_news[stock_name].empty:
+                    self.embed_data_workflow(stock_name)
+        else:
+            self.processed_news = None
 
     def embed_data_workflow(self, stock_name):
-        news = self.news[stock_name]
+        news = self.new_news[stock_name]
         position = 0
         news = self.manage_data(news, 'title', 'content', stock_name, "Standarization", position, "title_clean", "content_clean", self.standarization_data)
         news = self.manage_data(news, "title_clean", "content_clean", stock_name, "Abbreviation Processing", position, "title_abbreviation", "content_abbreviation", self.abbreviation_processing)
@@ -59,7 +111,36 @@ class EmbedData:
         news = self.grouped_news(news)
 
         news['date'] = pd.to_datetime(news['date']).astype('datetime64[s]')
-        news = self.normalization_data(news)
+
+        is_initialized = self.__load_pca(stock_name)
+        old_data = pd.DataFrame()
+        if self.processed_news is not None and self.processed_news[stock_name] is not None:
+            old_data = self.processed_news[stock_name].copy()
+            def parse_embedding(x):
+                if isinstance(x, str) and x.startswith('['):
+                    try:
+                        return np.array(ast.literal_eval(x))
+                    except Exception:
+                        numbers = re.findall(r'[-+]?\d*\.?\d+[eE]?[-+]?\d*', x)
+                        if numbers:
+                            return np.array([float(n) for n in numbers])
+                return x
+            if 'emb_mean' in old_data.columns:
+                old_data['emb_mean'] = old_data['emb_mean'].apply(parse_embedding)
+            
+            if 'embedding' in old_data.columns:
+                old_data['embedding'] = old_data['embedding'].apply(parse_embedding)
+                
+        if is_initialized:
+            news = self.normalization_data(news)
+            news = pd.concat([old_data, news])
+        else:
+            pca_cols = [col for col in old_data.columns if col.startswith('sentiment_pca_')]
+            old_data = old_data.drop(columns=pca_cols)
+            
+            news = pd.concat([old_data, news], ignore_index=True)
+            news = self.normalization_data(news, stock_name, True)
+            news = news.drop_duplicates(subset=['date'], keep='last')
         news.to_csv(f'data/Processed-News/{stock_name}.csv', index=False)
     
     def manage_data(self, news, title_key, content_key, stock_name, process_name, position, title_target_process_name, content_target_process_name, process):
@@ -124,16 +205,15 @@ class EmbedData:
     def abbreviation_processing(self, text):
         return replace_slang(text)
     
-    def get_nlp(self):
-        thread_local = threading.local()
-        if not hasattr(thread_local, "nlp"):
-            thread_local.nlp = spacy.load("id_ner_spacy_indonesian")
-        return thread_local.nlp
+    def _get_nlp(self):
+        if not hasattr(self._thread_local, "nlp"):
+            self._thread_local.nlp = spacy.load("id_ner_spacy_indonesian")
+        return self._thread_local.nlp
 
     def pipeline_ner(self, text):
         if not isinstance(text, str) or not text.strip():
             return [] 
-        nlp = self.get_nlp()
+        nlp = self._get_nlp()
         doc = nlp(text)
         return [(ent.text, ent.label_) for ent in doc.ents]
     
@@ -144,8 +224,7 @@ class EmbedData:
         return stopword_remover
     
     def handle_stopword(self, text):
-        stopword_remover = self.get_stopword_remover()
-        return stopword_remover.remove(text) 
+        return self._stopword.remove(text) 
     
     def get_stemmer_factory(self):
         factory = StemmerFactory()
@@ -154,8 +233,7 @@ class EmbedData:
         return stemmer
 
     def stem_word(self, text):
-        stemmer = self.get_stemmer_factory()
-        return stemmer.stem(text)
+        return self._stemmer.stem(text)
 
     def prepare_and_tokenize(self, tokenizer, news_item, max_length=512):
         news_item['full_text'] = news_item['title_stemmed'].fillna('').astype(str) + " " + news_item['content_stemmed'].fillna('').astype(str)
@@ -257,16 +335,29 @@ class EmbedData:
 
         return grouped_news
     
-    def normalization_data(self, news):
+    def __load_pca(self, stock_name):
+        try:
+            self.scaler = joblib.load(f"data/Models/{stock_name}/scaler.joblib")
+            self.pca = joblib.load(f"data/Models/{stock_name}/pca.joblib")
+            return True
+        except FileNotFoundError:
+            self.scaler = StandardScaler()
+            self.pca = PCA(n_components=50, random_state=0)
+            return False
+    
+    def normalization_data(self, news, stock_name = "", fit = False):
         x_emb = np.vstack(news['emb_mean'].values)
-        scaler = StandardScaler()
-        x_scaled = scaler.fit_transform(x_emb)
-        pca = PCA(n_components=50, random_state=0)
-        x_pca = pca.fit_transform(x_scaled)
+        if fit:
+            x_scaled = self.scaler.fit_transform(x_emb)
+            x_pca = self.pca.fit_transform(x_scaled)
+            os.makedirs(f"data/Models/{stock_name}", exist_ok=True)
+            joblib.dump(self.scaler, f"data/Models/{stock_name}/scaler.joblib")
+            joblib.dump(self.pca, f"data/Models/{stock_name}/pca.joblib")
+        else:
+            x_scaled = self.scaler.transform(x_emb)
+            x_pca = self.pca.transform(x_scaled)
 
         for i in range(50):
             news[f'sentiment_pca_{i}'] = x_pca[:, i]
         
         return news
-    
-embed_data = EmbedData()
