@@ -107,7 +107,7 @@ class ProcessedDataRepository:
         model = AutoModel.from_pretrained("indobenchmark/indobert-base-p1").to(config.device)
         model.eval()
         embeddings = self.get_embeddings_from_dataframe(news, model)
-        news['embedding'] = list(embeddings)
+        news['embedding'] = [emb.tolist() for emb in embeddings]
         news = self.grouped_news(news)
 
         news['date'] = pd.to_datetime(news['date']).astype('datetime64[s]')
@@ -141,7 +141,15 @@ class ProcessedDataRepository:
             news = pd.concat([old_data, news], ignore_index=True)
             news = self.normalization_data(news, stock_name, True)
             news = news.drop_duplicates(subset=['date'], keep='last')
+        news = self._clean_dataframe_for_csv(news)
         news.to_csv(f'data/Processed-News/{stock_name}.csv', index=False)
+
+    def _clean_dataframe_for_csv(self, df):
+        for col in df.columns:
+            sample = df[col].iloc[0] if len(df) > 0 else None
+            if sample is not None and isinstance(sample, np.ndarray):
+                df[col] = df[col].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+        return df
     
     def manage_data(self, news, title_key, content_key, stock_name, process_name, position, title_target_process_name, content_target_process_name, process):
         with ThreadPoolExecutor() as executor:
@@ -327,7 +335,7 @@ class ProcessedDataRepository:
             'sentiment_score': list,
             'embedding': list          
         })
-        grouped_news['emb_mean'] = grouped_news['embedding'].apply(lambda emb_list: np.mean(np.stack(emb_list), axis=0) if len(emb_list) > 0 else None)
+        grouped_news['emb_mean'] = grouped_news['embedding'].apply(lambda emb_list: np.mean(np.stack(emb_list), axis=0).tolist() if len(emb_list) > 0 else None)
         grouped_news['positive_grouped_news_sentiment'] = grouped_news['sentiment_label'].apply(lambda labels: labels.count('POSITIVE') if labels else 0)
         grouped_news['negative_grouped_news_sentiment'] = grouped_news['sentiment_label'].apply(lambda labels: labels.count('NEGATIVE') if labels else 0)
         grouped_news['mean_sentiment_score_positive'] = grouped_news.apply(lambda new: self.mean_sentiment_score(new, 'POSITIVE'), axis=1)
@@ -358,6 +366,6 @@ class ProcessedDataRepository:
             x_pca = self.pca.transform(x_scaled)
 
         for i in range(50):
-            news[f'sentiment_pca_{i}'] = x_pca[:, i]
+            news[f'sentiment_pca_{i}'] = x_pca[:, i].tolist()
         
         return news
