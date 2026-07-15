@@ -10,6 +10,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import torch
 import ast
 import os
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 from indoNLP.preprocessing import replace_slang
 from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory
@@ -24,6 +26,7 @@ class ProcessedDataRepository:
     def __init__(self):
         self.news_repository = NewsRepository()
         self.new_news = {}
+        self.newest_date = {}
         self.processed_news = {}
         self.scaler = None
         self.pca = None
@@ -50,6 +53,7 @@ class ProcessedDataRepository:
                 self.processed_news[stock_name].select_dtypes('number').fillna(0)
             except FileNotFoundError:
                 self.processed_news[stock_name] = None
+                self.newest_date[stock_name] = None
 
     def __load_new_news(self, stock_name):
         self.new_news[stock_name] = []
@@ -61,7 +65,7 @@ class ProcessedDataRepository:
         if self.processed_news.get(stock_name) is None:
             self.new_news[stock_name] = self.news_repository.news[stock_name]
             return
-        
+
         for processed in self.processed_news[stock_name]["title"]:
             if isinstance(processed, str):
                 try:
@@ -76,16 +80,32 @@ class ProcessedDataRepository:
         for _, news in self.news_repository.news[stock_name].iterrows():
             if news["title"] not in all_processed_news:
                 self.new_news[stock_name].append(news)
+            if self.newest_date[stock_name] is not None:
+                if news["date"] == self.newest_date[stock_name].strftime("%Y-%m-%d"):
+                    self.new_news[stock_name].append(news)
         
         self.new_news[stock_name] = pd.DataFrame(self.new_news[stock_name])
 
     def save_embedded_data(self):
         if self.news_repository.news is not None:
             for stock_name in config.stocks:
+                if self.processed_news[stock_name] is not None:
+                    if 'date' in self.processed_news[stock_name].columns:
+                        self.newest_date[stock_name] = (self.processed_news[stock_name]['date'].max())
+
+                        if pd.isna(self.newest_date[stock_name]):
+                            self.newest_date[stock_name] = datetime.strptime(config.start, "%Y-%m-%d")
+                        else:
+                            self.newest_date[stock_name] = datetime.strptime(self.newest_date[stock_name], "%Y-%m-%d")
+                    else:
+                        self.newest_date[stock_name] = datetime.strptime(config.start, "%Y-%m-%d")
+                else:
+                    self.newest_date[stock_name] = datetime.strptime(config.start, "%Y-%m-%d")
+
                 self.__load_new_news(stock_name)
                 if self.new_news[stock_name] is not None and not self.new_news[stock_name].empty:
                     self.embed_data_workflow(stock_name)
-        else:
+        else: 
             self.processed_news = None
 
     def embed_data_workflow(self, stock_name):
@@ -110,12 +130,16 @@ class ProcessedDataRepository:
         news['embedding'] = [emb.tolist() for emb in embeddings]
         news = self.grouped_news(news)
 
-        news['date'] = pd.to_datetime(news['date']).astype('datetime64[s]')
+        news['date'] = pd.to_datetime(news['date']).dt.strftime('%Y-%m-%d')
 
         is_initialized = self.__load_pca(stock_name)
         old_data = pd.DataFrame()
         if self.processed_news is not None and self.processed_news[stock_name] is not None:
             old_data = self.processed_news[stock_name].copy()
+            if self.newest_date is not None:
+                if self.newest_date[stock_name] is not None:
+                    old_data = old_data[old_data["date"] != self.newest_date[stock_name].strftime("%Y-%m-%d")]
+
             def parse_embedding(x):
                 if isinstance(x, str) and x.startswith('['):
                     try:

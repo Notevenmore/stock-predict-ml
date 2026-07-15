@@ -42,7 +42,7 @@ class NewsRepository:
     def load_news_data(self):
         if config.stocks is None or len(config.stocks) == 0:
             self.news = None
-            self.newest_date = config.start
+            self.newest_date = None
         else:
             for stock in config.stocks:
                 try:
