@@ -92,7 +92,10 @@ cd app
 source ./test/test.sh
 ```
 
-9. Jalankan celery
+9. Jalankan celery dan server
+
+```bash
    celery -A celery_app worker --loglevel=info
    celery -A celery_app beat --loglevel=info
    python app.py
+```
