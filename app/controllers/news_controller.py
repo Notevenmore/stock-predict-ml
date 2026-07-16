@@ -1,10 +1,12 @@
 from flask import jsonify
 from config import response
+from server import Service
 from models import NewsModel
 
 class NewsController:
     def __init__(self):
         self.model = NewsModel()
+        self.service = Service()
 
     def get_list_news(self, stock_name):
         data = self.model.get_news(stock_name)
@@ -16,6 +18,16 @@ class NewsController:
     def update_all_news_stock_data(self):
         try:
             self.model.load_routine_news()
+            
+            self.service.emit_events(
+                "news_updated", 
+                {
+                    "status": "SUCCESS",
+                    "code": 200,
+                    "message": "Berhasil update seluruh berita saham",
+                }  
+            )
+
             return jsonify(response.success_response(
                 message="Berhasil update seluruh berita saham", 
                 data=[]

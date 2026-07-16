@@ -47,6 +47,9 @@ ORDERBOOK_URL=
 
 CELERY_BROKER_URL=
 CELERY_RESULT_BACKEND=
+SCRAPPING_API_URL=
+SCRAPPING_MINUTES=
+SCRAPPING_HOUR=
 ```
 
 5. Jika ingin menambahkan package baru, jalankan command berikut diterminal
@@ -92,10 +95,26 @@ cd app
 source ./test/test.sh
 ```
 
-9. Jalankan celery dan server
+9. Jalankan celery worker, beat dan server
 
 ```bash
+   cd celery
    celery -A celery_app worker --loglevel=info
+```
+
+```bash
+   cd celery
    celery -A celery_app beat --loglevel=info
-   python app.py
+```
+
+```bash
+   cd app
+   python main.py
+```
+
+10. Jalankan ML Server
+
+```bash
+    cd ml-server
+    python main.py
 ```

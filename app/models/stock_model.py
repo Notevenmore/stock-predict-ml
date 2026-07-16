@@ -39,11 +39,8 @@ class StockModel:
             self.repository.ihsg['Close_ihsg'] = self.repository.ihsg['Close']
             self.orderbook_repository.orderbook[stock_name]['date'] = pd.to_datetime(self.orderbook_repository.orderbook[stock_name]['date'], format="mixed").astype(config.astype_date_data)
 
-            print("MERGE REPOSITORY STOCK PROCESSED NEWS")
             self.data[stock_name] = pd.merge(self.repository.stock[stock_name], self.processed_data_repository.processed_news[stock_name], on='date', how='inner', validate="one_to_one")
-            print("MERGE REPOSITORY STOCK IHSG")
             self.data[stock_name] = pd.merge(self.data[stock_name], self.repository.ihsg[['date', 'Close_ihsg']], on='date', how='inner', validate="one_to_one")
-            print("MERGE REPOSITORY STOCK ORDERBOOK")
             self.data[stock_name] = pd.merge(self.data[stock_name], self.orderbook_repository.orderbook[stock_name][['date', 'value', 'offer_value', 'offer_volume', 'bid_value', 'bid_volume', 'foreign_sell', 'foreign_buy']], on='date', how='inner', validate="one_to_one")
             
             numeric_cols = self.data[stock_name].select_dtypes('number').columns

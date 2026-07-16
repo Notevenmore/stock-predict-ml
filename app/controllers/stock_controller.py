@@ -1,10 +1,12 @@
 from flask import jsonify
 from config import response
+from server import Service
 from models import StockModel
 
 class StockController:
     def __init__(self):
         self.model = StockModel()
+        self.service = Service()
 
     def get_stock(self):
         data = self.model.get_stocks()
@@ -23,6 +25,16 @@ class StockController:
     def update_all_stock_data(self):
         try:
             self.model.load_routine_stock()
+
+            self.service.emit_events(
+                "stock_updated",
+                {
+                    "status": "SUCCESS",
+                    "code": 200,
+                    "message": "Berhasil update seluruh data saham",
+                }  
+            )
+
             return jsonify(response.success_response(
                 message="Berhasil update seluruh data saham", 
                 data=[]
