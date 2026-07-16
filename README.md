@@ -26,11 +26,14 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Setelah melakukan inisialisasi virtual environtment, salin file .env.example dan atur data-data yang kosong
+4. Setelah melakukan inisialisasi virtual environtment, salin file .env.example dan atur data-data yang kosong (di semua folder (app, celery, ataupun ml-server) lakukan hal ini)
 
 ```bash
+cd <some-project-directory>
 cp .env.example .env
 ```
+
+Folder App
 
 ```.env
 MEDIA_KEYWORDS=
@@ -44,7 +47,11 @@ CATEGORY=
 LIST_MEDIA=
 MEDIA_URL=
 ORDERBOOK_URL=
+```
 
+Folder Celery
+
+```.env
 CELERY_BROKER_URL=
 CELERY_RESULT_BACKEND=
 SCRAPPING_API_URL=
