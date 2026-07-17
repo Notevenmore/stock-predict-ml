@@ -7,4 +7,4 @@ app/data/Models
 __pycache__
 venv
 
-./celery/celerybeat-schedule
+celery/celerybeat-schedule
