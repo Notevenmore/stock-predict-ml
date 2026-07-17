@@ -8,7 +8,7 @@ Project ini masih dalam pengembangan dan dapat dioptimalisasi data nya dengan me
 
 ## Installation Guide
 
-### <STOCK-DATA-APP-DOCUMENTATION>
+### STOCK-DATA-APP-DOCUMENTATION
 
 1. Inisialisasi virtual environtment untuk project terlebih dahulu
 
@@ -69,7 +69,7 @@ pip install <new-package>
 pip freeze > requirements.txt
 ```
 
-### <STOCK-DATA-CELERY-DOCUMENTATION> (For Realtime and Notify newest news, orderbook, and analyze)
+### STOCK-DATA-CELERY-DOCUMENTATION (For Realtime and Notify newest news, orderbook, and analyze)
 
 6. Untuk mengaktifkan fitur realtime + scheduling data yang akan dimuat setiap hari (tepatnya di jam 12), lakukan tahapan selanjutnya
 
