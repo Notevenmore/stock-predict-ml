@@ -97,9 +97,18 @@ brew services restart redis
 
 8. Untuk melakukan pengujian fitur, jalankan
 
+Fitur app
+
 ```bash
 cd app
 source ./test/test.sh
+```
+
+Fitur celery
+
+```bash
+cd celery
+python -m test.workflow
 ```
 
 9. Jalankan celery worker, beat dan server
