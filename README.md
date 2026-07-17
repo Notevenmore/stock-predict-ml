@@ -1,11 +1,14 @@
-**Stock Data Mining**
+# Stock Data Mining
+
 Project ini merupakan project untuk mendukung pengumpulan data-data berita, data-data _orderbook_, dan data-data teknikal emiten
 
 Project ini akan digunakan oleh **Stock-ML Prediction** untuk memprediksi kenaikan ataupun penurunan harga saham yang ada di emiten IHSG.
 
 Project ini masih dalam pengembangan dan dapat dioptimalisasi data nya dengan menambahkan pengumpulan data berita International (saat ini, data berita sebatas berita dalam negeri)
 
-**Installation Guide <STOCK-DATA-APP-DOCUMENTATION>**
+## Installation Guide
+
+### <STOCK-DATA-APP-DOCUMENTATION>
 
 1. Inisialisasi virtual environtment untuk project terlebih dahulu
 
@@ -66,7 +69,7 @@ pip install <new-package>
 pip freeze > requirements.txt
 ```
 
-**Instalation Guide <STOCK-DATA-CELERY-DOCUMENTATION> (For Realtime and Notify newest news, orderbook, and analyze)**
+### <STOCK-DATA-CELERY-DOCUMENTATION> (For Realtime and Notify newest news, orderbook, and analyze)
 
 6. Untuk mengaktifkan fitur realtime + scheduling data yang akan dimuat setiap hari (tepatnya di jam 12), lakukan tahapan selanjutnya
 
@@ -134,3 +137,5 @@ python -m test.workflow
     cd ml-server
     python main.py
 ```
+
+## Arsitektur Sistem
