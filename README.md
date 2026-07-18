@@ -50,6 +50,12 @@ CATEGORY=
 LIST_MEDIA=
 MEDIA_URL=
 ORDERBOOK_URL=
+
+DB_USERNAME=
+DB_PASSWORD=
+DB_NAME=
+DB_PORT=
+DB_HOST=
 ```
 
 Folder Celery
@@ -69,11 +75,27 @@ pip install <new-package>
 pip freeze > requirements.txt
 ```
 
+6. Tahapan selanjutnya, inisialisasi database. dengan menggunakan kode berikut (jika pertama kali diload atau belum ada folder migrations)
+
+```bash
+cd app
+flask --app main db init
+flask --app main db migrate -m "<new migrate>"
+flask --app main db upgrade
+```
+
+7. Jika ingin menambahkan data dummy di database, jalankan kode berikut diterminal
+
+```bash
+cd app
+python3 -m database/seed.py
+```
+
 ### STOCK-DATA-CELERY-DOCUMENTATION (For Realtime and Notify newest news, orderbook, and analyze)
 
-6. Untuk mengaktifkan fitur realtime + scheduling data yang akan dimuat setiap hari (tepatnya di jam 12), lakukan tahapan selanjutnya
+8. Untuk mengaktifkan fitur realtime + scheduling data yang akan dimuat setiap hari (tepatnya di jam 12), lakukan tahapan selanjutnya
 
-7. Aktifkan server redis (MacOS Only)
+9. Aktifkan server redis (MacOS Only)
 
 ```bash
 brew services start redis
@@ -98,7 +120,7 @@ Untuk restart:
 brew services restart redis
 ```
 
-8. Untuk melakukan pengujian fitur, jalankan
+10. Untuk melakukan pengujian fitur, jalankan
 
 Fitur app
 
@@ -114,7 +136,7 @@ cd celery
 python -m test.workflow
 ```
 
-9. Jalankan celery worker, beat dan server
+11. Jalankan celery worker, beat dan server
 
 ```bash
    cd celery
@@ -131,11 +153,9 @@ python -m test.workflow
    python main.py
 ```
 
-10. Jalankan ML Server
+12. Jalankan ML Server
 
 ```bash
     cd ml-server
     python main.py
 ```
-
-## Arsitektur Sistem
