@@ -9,12 +9,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 
 from config import config, Browser
+from database import StockDB
+from flask import current_app as app
 
 class OrderbookRepository:
     def __init__(self):
         self.orderbook = {}
         self.newest_date = {}
-        self.load_orderbook_data()
 
     def get_orderbook(self, stock_name):
         if self.orderbook is None:
@@ -26,10 +27,15 @@ class OrderbookRepository:
         return self.orderbook[stock_name]
 
     def load_orderbook_data(self):
-        if config.stocks is None or len(config.stocks) == 0:
+        with app.app_context():
+            stocks = [
+                stock.code for stock in StockDB.query.all()
+            ]
+
+        if len(stocks) == 0:
             self.orderbook = None
         else:
-            for stock in config.stocks:
+            for stock in stocks:
                 try:
                     self.orderbook[stock] = pd.read_csv(f'data/OrderBook/{stock}.csv')
                     if 'Unnamed: 0' in self.orderbook[stock].columns:
@@ -38,7 +44,12 @@ class OrderbookRepository:
                     self.orderbook[stock] = None
 
     def update_orderbook_data(self):
-        for stock in config.stocks:
+        with app.app_context():
+            stocks = [
+                stock.code for stock in StockDB.query.all()
+            ]
+
+        for stock in stocks:
             if 'date' in self.orderbook[stock].columns:
                 self.newest_date[stock] = self.orderbook[stock]['date'].max()
 
@@ -49,9 +60,9 @@ class OrderbookRepository:
             else:
                 self.newest_date[stock] = datetime.strptime(config.start, "%Y-%M-%d")
 
-        self.load_orderbook_all_stock_data()
+        self.load_orderbook_all_stock_data(stocks)
 
-    def load_orderbook_all_stock_data(self):
+    def load_orderbook_all_stock_data(self, stocks):
         start_str = datetime.strftime(min(self.newest_date.values()), "%Y-%m-%d")
         end_str = config.end
         ranges = self.split_date_range(start_str, end_str)
@@ -62,18 +73,18 @@ class OrderbookRepository:
             futures = []
 
             for start_range, end_range in ranges:
-                futures.append(executor.submit(self.load_orderbook, start_range, end_range, load_position))
+                futures.append(executor.submit(self.load_orderbook, start_range, end_range, load_position, stocks))
                 load_position += 1
 
             for f in as_completed(futures):
                 new_orderbook.extend(f.result())
         
-        stocks_data = {stock: [] for stock in config.stocks}
+        stocks_data = {stock: [] for stock in stocks}
         for date_dict in new_orderbook:  
             for stock, data in date_dict.items():
                 stocks_data[stock].append(data)
         
-        for stock in config.stocks:
+        for stock in stocks:
             if not stocks_data[stock]:
                 continue
 
@@ -163,24 +174,24 @@ class OrderbookRepository:
             
         return data_rows
     
-    def extract_data_from_idx_table(self, table):
+    def extract_data_from_idx_table(self, table, stocks):
         headers = self.extract_data_from_idx_thead(table)
         data_rows = self.extract_data_from_idx_tbody(table, headers)
         
-        result_list = [item for item in data_rows if item.get('Kode Saham') in set(config.stocks)]
+        result_list = [item for item in data_rows if item.get('Kode Saham') in set(stocks)]
         if not result_list:
             return None
 
         return result_list
     
-    def mapping_data(self, result_list, target_date):
+    def mapping_data(self, result_list, target_date, stocks):
         item = result_list[0]
         required_keys = ['Nilai', 'Offer', 'Offer Volume', 'Bid', 'Bid Volume', 'Foreign Sell', 'Foreign Buy']
         if any(key not in item for key in required_keys):
             raise Exception("Column not found")
         
         result = {}
-        for stock in config.stocks:
+        for stock in stocks:
             for r in result_list:
                 if r.get('Kode Saham') == stock:               
                     result[stock] = {
@@ -195,7 +206,7 @@ class OrderbookRepository:
                     }
         return result
 
-    def scrape_date(self, target_date, position):
+    def scrape_date(self, target_date, position, stocks):
         date_input = self.browser[position].wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input.mx-input")))
         self.browser[position].driver.execute_script("arguments[0].value = '';", date_input)
         self.browser[position].driver.execute_script(f"arguments[0].value = '{target_date.strftime('%Y-%m-%d')}';", date_input)
@@ -210,12 +221,12 @@ class OrderbookRepository:
         table = self.browser[position].get_element(self.browser[position].driver.page_source, "table", id="vgt-table", is_find_all=False)
         if not table:
             return None
-
-        result_list = self.extract_data_from_idx_table(table)
+        
+        result_list = self.extract_data_from_idx_table(table, stocks)
         if result_list is None:
             return None
 
-        return self.mapping_data(result_list, target_date)
+        return self.mapping_data(result_list, target_date, stocks)
     
     def to_int(self, val):
         if val is None:
@@ -228,7 +239,7 @@ class OrderbookRepository:
             return 0
         return int(cleaned)
     
-    def load_orderbook(self, start_str, end_str, position):
+    def load_orderbook(self, start_str, end_str, position, stocks):
         current_date = datetime.strptime(start_str, "%Y-%m-%d")
         end_date = datetime.strptime(end_str, "%Y-%m-%d")
         total_days = (end_date - current_date).days + 1
@@ -242,7 +253,7 @@ class OrderbookRepository:
         with tqdm(total=total_days, position=position, desc="Load OrderBook") as pbar:
             while current_date <= end_date:
                 try:
-                    result = self.scrape_date(current_date, position)
+                    result = self.scrape_date(current_date, position, stocks)
                     if result:
                         orderbook.append(result)
                     

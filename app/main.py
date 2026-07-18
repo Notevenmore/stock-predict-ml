@@ -15,16 +15,16 @@ app.config["SQLALCHEMY_DATABASE_URI"] = config.SQLALCHEMY_DATABASE_URI
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = config.SQLALCHEMY_TRACK_MODIFICATIONS
 
 db.init_app(app)
-
-register_blueprints(app)
-
 migrate = Migrate(app, db)
 
 from database import StockDB
 
+register_blueprints(app)
+with app.app_context():
+    from routes import initialize
+    initialize()
+
 socketio.init_app(app)
 
 if __name__ == '__main__':
-    with app.app_context():
-        config.load_stock()
     socketio.run(app, debug=False, port=5000)

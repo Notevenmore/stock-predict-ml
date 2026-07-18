@@ -14,6 +14,8 @@ from threading import RLock
 
 from config import config, Browser
 from helper import matching, element_to_formatted_text
+from database import StockDB
+from flask import current_app as app
 
 tqdm.set_lock(RLock())
 
@@ -28,7 +30,6 @@ class NewsRepository:
         self.months = json.loads(os.getenv("MONTHS"))
         self.news = {}
         self.newest_date = {}
-        self.load_news_data()
     
     def get_news(self, stock_name):
         if self.news is None:
@@ -40,11 +41,16 @@ class NewsRepository:
         return self.news[stock_name]
     
     def load_news_data(self):
-        if config.stocks is None or len(config.stocks) == 0:
+        with app.app_context():
+            stocks = [
+                stock.code for stock in StockDB.query.all()
+            ]
+
+        if len(stocks) == 0:
             self.news = None
             self.newest_date = None
         else:
-            for stock in config.stocks:
+            for stock in stocks:
                 try:
                     self.news[stock] = pd.read_csv(f'data/News/{stock}.csv')
                     if 'Unnamed: 0' in self.news[stock].columns:
@@ -54,7 +60,12 @@ class NewsRepository:
                     self.newest_date[stock] = datetime.strptime(config.start, "%Y-%m-%d")
     
     def update_news_data(self):
-        for stock in config.stocks:
+        with app.app_context():
+            stocks = [
+                stock.code for stock in StockDB.query.all()
+            ]
+
+        for stock in stocks:
             if self.news[stock] is not None:
                 if 'date' in self.news[stock].columns:
                     self.newest_date[stock] = self.news[stock]['date'].max()
@@ -73,24 +84,26 @@ class NewsRepository:
     def scrape_and_save_news(self, stock_name):
         new_news_list = []
         position = 0
+        company_pattern = self.load_company_pattern()
+
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = []
             
-            futures.append(executor.submit(self.load_detik_news, stock_name, position))
+            futures.append(executor.submit(self.load_detik_news, stock_name, position, company_pattern))
             position += 2
             
-            futures.append(executor.submit(self.load_cnn_indonesia_news, stock_name, position))
+            futures.append(executor.submit(self.load_cnn_indonesia_news, stock_name, position, company_pattern))
             position += 2
 
-            futures.append(executor.submit(self.load_idx_news, stock_name, position))
+            futures.append(executor.submit(self.load_idx_news, stock_name, position, company_pattern))
             position += 2
 
             for category in self.news_category["bisnis"]:
-                futures.append(executor.submit(self.load_bisnis_com, category, stock_name, position))
+                futures.append(executor.submit(self.load_bisnis_com, category, stock_name, position, company_pattern))
                 position += 2
 
             for category in self.news_category["tribunnews"]:
-                futures.append(executor.submit(self.load_tribun_news, category, stock_name, position))
+                futures.append(executor.submit(self.load_tribun_news, category, stock_name, position, company_pattern))
                 position += 2
 
             for f in as_completed(futures):
@@ -110,7 +123,36 @@ class NewsRepository:
         self.news[stock_name].drop_duplicates(subset=['title'], keep='first', inplace=True)
         self.news[stock_name].to_csv(f"data/News/{stock_name}.csv")
     
-    def append_new_news(self, news, link, publish_date, text, stock_name):
+    def load_company_pattern(self):
+        with app.app_context():
+            stocks = StockDB.query.all()
+    
+        stock_categories = {stock.code: stock.categories for stock in stocks}
+        stocks = [
+            stock.code for stock in stocks
+        ]
+
+        company_international_keys = {
+            stock: {stock} | set(stock_categories[stock])
+            for stock in stocks
+        }
+
+        company_international_key_lower = {
+            stock: [
+                company_international_key.lower() for company_international_key in company_international_keys[stock]
+            ]
+            for stock in stocks
+        }
+
+        company_pattern = {
+            stock: config.build_pattern(company_international_key_lower[stock]) 
+            for stock in stocks
+        }
+
+        return company_pattern
+
+    def append_new_news(self, news, link, publish_date, text, stock_name, company_pattern):
+
         publish_date_datetime_format = datetime.strptime(publish_date, "%Y-%m-%d")
         start_date = datetime.strptime(config.start, "%Y-%m-%d")
         
@@ -126,7 +168,7 @@ class NewsRepository:
         if not link:
             return False
         
-        if(config.national_pattern.search(text) or config.international_pattern.search(text) or config.company_pattern[stock_name].search(text)):
+        if(config.national_pattern.search(text) or config.international_pattern.search(text) or company_pattern[stock_name].search(text)):
             news.append({
                 "link": link,
                 "title": text,
@@ -180,7 +222,7 @@ class NewsRepository:
             }
         return news
     
-    def load_detik_news(self, stock_name, position):
+    def load_detik_news(self, stock_name, position, company_pattern):
         browser = Browser()
         url = f"{self.media_url["detik"]}?page=1"
         news = []
@@ -243,7 +285,7 @@ class NewsRepository:
                 if not success or "finance.detik.com" not in link.get('href'):
                     continue
                 
-                if self.append_new_news(news, link.get('href'), publish_date, text, stock_name):
+                if self.append_new_news(news, link.get('href'), publish_date, text, stock_name, company_pattern):
                     loaded_all = True
                     break
 
@@ -280,7 +322,7 @@ class NewsRepository:
         pbar_articles.close()
         return news
     
-    def load_cnn_indonesia_news(self, stock_name, position):
+    def load_cnn_indonesia_news(self, stock_name, position, company_pattern):
         browser = Browser()
         url = f"{self.media_url["cnnindonesia"]}?page=1"
         response = browser.session.get(url)
@@ -360,7 +402,7 @@ class NewsRepository:
                 if not success:
                     continue
                 
-                if self.append_new_news(news, link.get('href'), publish_date, text, stock_name):
+                if self.append_new_news(news, link.get('href'), publish_date, text, stock_name, company_pattern):
                     loaded_all = True
                     break
             pbar_pages.update(1)
@@ -395,7 +437,7 @@ class NewsRepository:
         pbar_articles.close()
         return news
     
-    def load_bisnis_com(self, category, stock_name, position):
+    def load_bisnis_com(self, category, stock_name, position, company_pattern):
         browser = Browser()
         total_page = 1
         response = browser.session.get(f"{self.media_url["bisnis"]}?categoryId={category}&page=1")
@@ -467,7 +509,7 @@ class NewsRepository:
                     if not success:
                         continue
 
-                    if self.append_new_news(news, base_url, publish_date, text, stock_name):
+                    if self.append_new_news(news, base_url, publish_date, text, stock_name, company_pattern):
                         loaded_all = True
                         break
                 pbar_pages.update(1)
@@ -507,7 +549,7 @@ class NewsRepository:
             print(e)
             return []
     
-    def load_tribun_news(self, category, stock_name, position):
+    def load_tribun_news(self, category, stock_name, position, company_pattern):
         browser = Browser()
         total_page = 1
         response = browser.session.get(f"{self.media_url["tribunnews"]}{category}?page=1")
@@ -572,7 +614,7 @@ class NewsRepository:
                     if not success:
                         continue
                     
-                    if self.append_new_news(news, base_url, publish_date, text, stock_name):
+                    if self.append_new_news(news, base_url, publish_date, text, stock_name, company_pattern):
                         loaded_all = True
                         break
                 pbar_pages.update(1)
@@ -610,7 +652,7 @@ class NewsRepository:
             print(e)
             return []
     
-    def load_idx_news(self, stock_name, position):
+    def load_idx_news(self, stock_name, position, company_pattern):
         browser = Browser(True)
         browser.driver.get(f"{self.media_url['idxnews']}/id/berita/berita/?p=1")
         
@@ -681,7 +723,7 @@ class NewsRepository:
                         date, month, year = match.groups()
                         publish_date = f"{year}-{self.months[month]}-{date.zfill(2)}"
 
-                        if self.append_new_news(news, link.get('href'), publish_date, title, stock_name):
+                        if self.append_new_news(news, link.get('href'), publish_date, title, stock_name, company_pattern):
                             loaded_all = True
                     
                     matching.matching(r'(\d{2})\s+(\w+)\s+(\d{4})', date_div.text.strip(), match_1)

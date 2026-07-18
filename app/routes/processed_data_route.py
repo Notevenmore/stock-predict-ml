@@ -4,6 +4,9 @@ from controllers import ProcessedDataController
 processed_data_bp = Blueprint('processed-data', __name__, url_prefix='/processed-data')
 processed_data_controller = ProcessedDataController()
 
+def initialize():
+    processed_data_controller.model.repository.load_embedded_data()
+
 @processed_data_bp.route("", methods=["PUT"])
 def update_processed_data():
     return processed_data_controller.update_all_processed_data()

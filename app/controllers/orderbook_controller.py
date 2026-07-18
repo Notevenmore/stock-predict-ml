@@ -2,6 +2,7 @@ from flask import jsonify
 from config import response
 from server import Service
 from models import OrderbookModel
+import traceback
 
 class OrderbookController:
     def __init__(self):
@@ -34,6 +35,8 @@ class OrderbookController:
                 data=[]
             ))
         except Exception as e:
+            traceback.print_exc()
+            
             return jsonify(response.error_response(
                 code=500,
                 message=f"Gagal update seluruh data orderbook saham: {e}",

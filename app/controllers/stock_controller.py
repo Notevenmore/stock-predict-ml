@@ -2,6 +2,7 @@ from flask import jsonify
 from config import response
 from server import Service
 from models import StockModel
+import traceback
 
 class StockController:
     def __init__(self):
@@ -40,6 +41,8 @@ class StockController:
                 data=[]
             ))
         except Exception as e:
+            traceback.print_exc()
+            
             return jsonify(response.error_response(
                 code=500,
                 message=f"Gagal update seluruh data saham: {e}",

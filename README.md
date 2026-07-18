@@ -159,3 +159,100 @@ python -m test.workflow
     cd ml-server
     python main.py
 ```
+
+## Arsitektur Sistem
+
+```text
+                       +----------------------+
+                       |     PostgreSQL       |
+                       +----------+-----------+
+                                  ^
+                                  |
+                    +-------------+-------------+
+                    |                           |
+          +---------+---------+       +---------+---------+
+          |     Flask API     |       | Celery Worker     |
+          | REST / WebSocket  |       | Background Jobs   |
+          +---------+---------+       +---------+---------+
+                    ^                           ^
+                    |                           |
+                    |                    +------+------+
+                    |                    |    Redis    |
+                    |                    +------+------+
+                    |                           ^
+                    |                           |
+              +-----+---------------------------+
+              |
+      +-------+--------+
+      |  Client Apps   |
+      +----------------+
+      | Desktop (Qt)   |
+      | Web            |
+      | Android        |
+      | iOS            |
+      +----------------+
+```
+
+## Scheduler
+
+```text
+          Every 00:00
+               │
+               ▼
+       Celery Beat
+               │
+               ▼
+            Redis
+               │
+               ▼
+        Celery Worker
+               │
+               ▼
+       daily_update()
+```
+
+## Daily Workflow
+
+```text
+                daily_update
+                     │
+                  chord
+                     │
+      ┌──────────────┴──────────────┐
+      │                             │
+      ▼                             ▼
+Orderbook                 News
+                                │
+                                ▼
+                        Processed Data
+      │                             │
+      └──────────────┬──────────────┘
+                     ▼
+                  Stock
+```
+
+## API Flow
+
+```text
+Desktop
+Web
+Android
+iOS
+    │
+    ▼
+Flask REST API
+    │
+    ▼
+Service Layer
+    │
+    ▼
+Repository Layer
+    │
+    ▼
+Database
+```
+
+Frontend: NextJS
+Desktop: PySide6
+Android: Kotlin
+IOS: SwiftUI

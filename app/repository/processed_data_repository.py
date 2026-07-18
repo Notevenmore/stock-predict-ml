@@ -10,8 +10,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import torch
 import ast
 import os
-from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
+from datetime import datetime
+from database import StockDB
+from flask import current_app as app
 
 from indoNLP.preprocessing import replace_slang
 from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory
@@ -34,8 +35,6 @@ class ProcessedDataRepository:
         self._thread_local = threading.local()
         self._stemmer = StemmerFactory().create_stemmer()
         self._stopword = StopWordRemoverFactory().create_stop_word_remover()
-        
-        self.load_embedded_data()
 
     def get_processed_news_data(self, stock_name):
         if self.processed_news is None:
@@ -47,7 +46,12 @@ class ProcessedDataRepository:
         return self.processed_news
 
     def load_embedded_data(self):
-        for stock_name in config.stocks:
+        with app.app_context():
+            stocks = [
+                stock.code for stock in StockDB.query.all()
+            ]
+
+        for stock_name in stocks:
             try:
                 self.processed_news[stock_name] = pd.read_csv(f'data/Processed-News/{stock_name}.csv')
                 self.processed_news[stock_name].select_dtypes('number').fillna(0)
@@ -59,12 +63,16 @@ class ProcessedDataRepository:
         self.new_news[stock_name] = []
         all_processed_news = set()
 
-        if self.news_repository.news[stock_name] is None:
-            return
+        if self.news_repository.news.get(stock_name) is None:
+            self.news_repository.load_news_data()
+            if self.news_repository.news.get(stock_name) is None:
+                return
         
         if self.processed_news.get(stock_name) is None:
-            self.new_news[stock_name] = self.news_repository.news[stock_name]
-            return
+            self.load_embedded_data()
+            if self.processed_news.get(stock_name) is None:
+                self.new_news[stock_name] = self.news_repository.news[stock_name]
+                return
 
         for processed in self.processed_news[stock_name]["title"]:
             if isinstance(processed, str):
@@ -88,7 +96,12 @@ class ProcessedDataRepository:
 
     def save_embedded_data(self):
         if self.news_repository.news is not None:
-            for stock_name in config.stocks:
+            with app.app_context():
+                stocks = [
+                    stock.code for stock in StockDB.query.all()
+                ]
+
+            for stock_name in stocks:
                 if self.processed_news[stock_name] is not None:
                     if 'date' in self.processed_news[stock_name].columns:
                         self.newest_date[stock_name] = (self.processed_news[stock_name]['date'].max())

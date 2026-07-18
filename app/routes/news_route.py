@@ -4,6 +4,9 @@ from controllers import NewsController
 news_bp = Blueprint('news', __name__, url_prefix='/news')
 news_controller = NewsController()
 
+def initialize():
+    news_controller.model.repository.load_news_data()
+
 @news_bp.route("/", methods=["PUT"])
 def update_news():
     return news_controller.update_all_news_stock_data()
