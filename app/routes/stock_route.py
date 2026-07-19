@@ -7,6 +7,7 @@ stock_controller = StockController()
 def initialize():
     stock_controller.model.repository.load_ohlcv()
     stock_controller.model.repository.load_ihsg()
+    stock_controller.model.processed_all_data()
 
 @stock_bp.route("", methods=["PUT"])
 def update_stocks():

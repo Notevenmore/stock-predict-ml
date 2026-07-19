@@ -13,9 +13,12 @@ from database import StockDB
 from flask import current_app as app
 
 class OrderbookRepository:
-    def __init__(self):
+    def __init__(self, is_init=False):
         self.orderbook = {}
         self.newest_date = {}
+
+        if is_init:
+            self.load_orderbook_data()
 
     def get_orderbook(self, stock_name):
         if self.orderbook is None:
@@ -51,7 +54,8 @@ class OrderbookRepository:
 
         for stock in stocks:
             if 'date' in self.orderbook[stock].columns:
-                self.newest_date[stock] = self.orderbook[stock]['date'].max()
+                self.orderbook[stock]['date'] = pd.to_datetime(self.orderbook[stock]['date']).dt.date
+                self.newest_date[stock] = self.orderbook[stock]['date'].max().strftime("%Y-%m-%d")
 
                 if pd.isna(self.newest_date[stock]):
                     self.newest_date[stock] = datetime.strptime(config.start, "%Y-%m-%d")
@@ -95,7 +99,9 @@ class OrderbookRepository:
                 self.orderbook[stock] = pd.concat([self.orderbook[stock], new_df], ignore_index=True)
                 self.orderbook[stock] = self.orderbook[stock].drop_duplicates(subset=['date'], keep='last')
             
+            self.orderbook[stock]['date'] = pd.to_datetime(self.orderbook[stock]['date']).dt.date
             self.orderbook[stock] = self.orderbook[stock].sort_values(by='date').reset_index(drop=True)
+            self.orderbook[stock] = self.orderbook[stock].drop_duplicates()
             self.orderbook[stock].to_csv(f'./data/OrderBook/{stock}.csv')
 
     

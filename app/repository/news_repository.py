@@ -23,13 +23,16 @@ class NewsRepository:
     max_retries = 3
     EXECUTE_SCRIPT = "window.scrollTo(0, document.body.scrollHeight);"
 
-    def __init__(self):
+    def __init__(self, is_init=False):
         self.news_category = json.loads(os.getenv("CATEGORY"))
             
         self.media_url = json.loads(os.getenv("MEDIA_URL"))
         self.months = json.loads(os.getenv("MONTHS"))
         self.news = {}
         self.newest_date = {}
+
+        if is_init:
+            self.load_news_data()
     
     def get_news(self, stock_name):
         if self.news is None:

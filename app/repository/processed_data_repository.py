@@ -24,8 +24,9 @@ import joblib
 import spacy
 
 class ProcessedDataRepository:
-    def __init__(self):
-        self.news_repository = NewsRepository()
+    def __init__(self, is_init = False):
+        self.news_repository = None
+
         self.new_news = {}
         self.newest_date = {}
         self.processed_news = {}
@@ -35,6 +36,9 @@ class ProcessedDataRepository:
         self._thread_local = threading.local()
         self._stemmer = StemmerFactory().create_stemmer()
         self._stopword = StopWordRemoverFactory().create_stop_word_remover()
+
+        if is_init:
+            self.load_embedded_data()
 
     def get_processed_news_data(self, stock_name):
         if self.processed_news is None:
@@ -46,6 +50,7 @@ class ProcessedDataRepository:
         return self.processed_news
 
     def load_embedded_data(self):
+        self.news_repository = NewsRepository(is_init=True)
         with app.app_context():
             stocks = [
                 stock.code for stock in StockDB.query.all()
@@ -86,11 +91,13 @@ class ProcessedDataRepository:
                 all_processed_news.update(processed)
                 
         for _, news in self.news_repository.news[stock_name].iterrows():
-            if news["title"] not in all_processed_news:
-                self.new_news[stock_name].append(news)
             if self.newest_date[stock_name] is not None:
-                if news["date"] == self.newest_date[stock_name].strftime("%Y-%m-%d"):
-                    self.new_news[stock_name].append(news)
+                if news["date"] >= self.newest_date[stock_name].strftime("%Y-%m-%d"):
+                    print("isbiggerorsame")
+                    if self.new_news.get(stock_name) == None:
+                        self.new_news[stock_name] = [news]
+                    else:
+                        self.new_news[stock_name].append(news)
         
         self.new_news[stock_name] = pd.DataFrame(self.new_news[stock_name])
 
@@ -104,7 +111,8 @@ class ProcessedDataRepository:
             for stock_name in stocks:
                 if self.processed_news[stock_name] is not None:
                     if 'date' in self.processed_news[stock_name].columns:
-                        self.newest_date[stock_name] = (self.processed_news[stock_name]['date'].max())
+                        self.processed_news[stock_name]['date'] = pd.to_datetime(self.processed_news[stock_name]['date']).dt.date
+                        self.newest_date[stock_name] = (self.processed_news[stock_name]['date'].max().strftime("%Y-%m-%d"))
 
                         if pd.isna(self.newest_date[stock_name]):
                             self.newest_date[stock_name] = datetime.strptime(config.start, "%Y-%m-%d")
@@ -116,8 +124,9 @@ class ProcessedDataRepository:
                     self.newest_date[stock_name] = datetime.strptime(config.start, "%Y-%m-%d")
 
                 self.__load_new_news(stock_name)
-                if self.new_news[stock_name] is not None and not self.new_news[stock_name].empty:
-                    self.embed_data_workflow(stock_name)
+                if self.new_news.get(stock_name) is not None:
+                    if not self.new_news[stock_name].empty:
+                        self.embed_data_workflow(stock_name)
         else: 
             self.processed_news = None
 
@@ -149,9 +158,12 @@ class ProcessedDataRepository:
         old_data = pd.DataFrame()
         if self.processed_news is not None and self.processed_news[stock_name] is not None:
             old_data = self.processed_news[stock_name].copy()
+            old_data["date"] = pd.to_datetime(old_data["date"]).dt.date
+
+
             if self.newest_date is not None:
-                if self.newest_date[stock_name] is not None:
-                    old_data = old_data[old_data["date"] != self.newest_date[stock_name].strftime("%Y-%m-%d")]
+                if self.newest_date.get(stock_name) is not None:
+                    old_data = old_data[old_data["date"]< self.newest_date[stock_name].date()]
 
             def parse_embedding(x):
                 if isinstance(x, str) and x.startswith('['):
@@ -170,6 +182,7 @@ class ProcessedDataRepository:
                 
         if is_initialized:
             news = self.normalization_data(news)
+
             news = pd.concat([old_data, news])
         else:
             pca_cols = [col for col in old_data.columns if col.startswith('sentiment_pca_')]
@@ -177,7 +190,8 @@ class ProcessedDataRepository:
             
             news = pd.concat([old_data, news], ignore_index=True)
             news = self.normalization_data(news, stock_name, True)
-            news = news.drop_duplicates(subset=['date'], keep='last')
+            
+        news = news.drop_duplicates(subset=['date'], keep='last')
         news = self._clean_dataframe_for_csv(news)
         news.to_csv(f'data/Processed-News/{stock_name}.csv', index=False)
 

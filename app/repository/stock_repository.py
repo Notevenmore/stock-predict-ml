@@ -5,9 +5,19 @@ from database import StockDB
 from flask import current_app as app
 
 class StockRepository:
-    def __init__(self):
+    def __init__(self, is_init = False):
         self.ihsg = None
         self.stock = {}
+
+        if is_init:
+            self.load_ohlcv()
+            self.load_ihsg()
+
+    def get_stocks(self):
+        with app.app_context():
+            stocks = StockDB.query.all()
+
+        return stocks
 
     def save_ohlcv(self):
         with app.app_context():
