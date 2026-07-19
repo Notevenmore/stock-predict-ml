@@ -1,4 +1,4 @@
-from flask import Blueprint
+from flask import Blueprint, request
 from controllers import StockController
 
 stock_bp = Blueprint('stock', __name__, url_prefix='/stock')
@@ -15,4 +15,14 @@ def update_stocks():
 
 @stock_bp.route("", methods=['GET'])
 def get_list_stock():
-    return stock_controller.get_stock()
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 50))
+
+    return stock_controller.get_stock(page, limit)
+
+@stock_bp.route("/<stock_name>", methods=['GET'])
+def get_stock_data(stock_name):
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 50))
+
+    return stock_controller.get_stock_data(stock_name, page, limit)

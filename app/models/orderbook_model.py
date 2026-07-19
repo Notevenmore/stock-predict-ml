@@ -4,8 +4,8 @@ class OrderbookModel:
     def __init__(self):
         self.repository = OrderbookRepository()
     
-    def get_orderbooks(self, stock_name):
-        data = self.repository.get_orderbook(stock_name)
+    def get_orderbooks(self, stock_name, page, limit):
+        data = self.repository.get_orderbook(stock_name, page, limit)
         if data is None:
             return []
         

@@ -9,8 +9,8 @@ class NewsController:
         self.model = NewsModel()
         self.service = Service()
 
-    def get_list_news(self, stock_name):
-        data = self.model.get_news(stock_name)
+    def get_list_news(self, stock_name, page, limit):
+        data = self.model.get_news(stock_name, page, limit)
         return jsonify(response.success_response(
             message="Berhasil mendapatkan data berita saham",
             data=data

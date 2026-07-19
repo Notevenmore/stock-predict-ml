@@ -9,15 +9,15 @@ class StockController:
         self.model = StockModel()
         self.service = Service()
 
-    def get_stock(self):
-        data = self.model.get_stocks()
+    def get_stock(self, page, limit):
+        data = self.model.get_stocks(page, limit)
         return jsonify(response.success_response(
             message="Berhasil mendapatkan data daftar saham", 
             data=data
         ))
     
-    def get_stock_data(self, stock_name):
-        data = self.model.get_stock_data(stock_name)
+    def get_stock_data(self, stock_name, page, limit):
+        data = self.model.get_stock_data(stock_name, page, limit)
         return jsonify(response.success_response(
             message=f"Berhasil mendapatkan data saham {stock_name}", 
             data=data

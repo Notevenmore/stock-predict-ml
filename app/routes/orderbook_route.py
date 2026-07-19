@@ -1,4 +1,4 @@
-from flask import Blueprint
+from flask import Blueprint, request
 from controllers import OrderbookController
 
 orderbook_bp = Blueprint('orderbook', __name__, url_prefix='/orderbook')
@@ -13,5 +13,8 @@ def update_orderbook():
 
 @orderbook_bp.route("/<stock_name>", methods=["GET"])
 def get_list_orderbook(stock_name):
-    return orderbook_controller.get_list_orderbook(stock_name)
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 50))
+
+    return orderbook_controller.get_list_orderbook(stock_name, page, limit)
     

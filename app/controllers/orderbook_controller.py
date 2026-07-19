@@ -9,8 +9,8 @@ class OrderbookController:
         self.model = OrderbookModel()
         self.service = Service()
 
-    def get_list_orderbook(self, stock_name):
-        data = self.model.get_orderbooks(stock_name)
+    def get_list_orderbook(self, stock_name, page, limit):
+        data = self.model.get_orderbooks(stock_name, page, limit)
         
         return jsonify(response.success_response(
             message="Berhasil mendapatkan data orderbook saham",

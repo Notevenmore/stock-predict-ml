@@ -34,14 +34,18 @@ class NewsRepository:
         if is_init:
             self.load_news_data()
     
-    def get_news(self, stock_name):
+    def get_news(self, stock_name, page, limit):
         if self.news is None:
             return []
         
         if self.news[stock_name] is None:
             return []
         
-        return self.news[stock_name]
+        start = (page - 1) * limit
+        end = start + limit
+        result = self.news[stock_name].iloc[start:end]
+        
+        return result
     
     def load_news_data(self):
         with app.app_context():

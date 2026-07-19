@@ -20,14 +20,19 @@ class OrderbookRepository:
         if is_init:
             self.load_orderbook_data()
 
-    def get_orderbook(self, stock_name):
+    def get_orderbook(self, stock_name, page, limit):
         if self.orderbook is None:
             return []
         
         if self.orderbook[stock_name] is None:
             return []
         
-        return self.orderbook[stock_name]
+        start = (page - 1) * limit
+        end = start + limit
+
+        result = self.orderbook[stock_name].iloc[start:end]
+        
+        return result
 
     def load_orderbook_data(self):
         with app.app_context():

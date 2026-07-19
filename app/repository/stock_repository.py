@@ -13,11 +13,35 @@ class StockRepository:
             self.load_ohlcv()
             self.load_ihsg()
 
-    def get_stocks(self):
+    def get_stocks(self, page, limit):
+        offset = (page-1) * limit
         with app.app_context():
-            stocks = StockDB.query.all()
+            total = StockDB.query.count()
+            stocks = [stock.to_dict() for stock in StockDB.query.order_by(StockDB.id).offset(offset).limit(limit).all()]
+        
+        for stock in stocks:
+            stock_df = self.stocks.get(stock['code'])
+            if stock_df is None:
+                stock["current_price"] = 0
+                continue
+            
+            if stock_df.empty:
+                stock["current_price"] = 0
+                continue
 
-        return stocks
+            stock_data = stock_df.iloc[-1]
+            stock["current_price"] = stock_data["Close"]
+        
+
+        data = {
+            "stocks": stocks,
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "has_next": offset + limit < total
+        }
+
+        return data
 
     def save_ohlcv(self):
         with app.app_context():

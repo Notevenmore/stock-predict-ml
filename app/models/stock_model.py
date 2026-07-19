@@ -12,17 +12,21 @@ class StockModel:
             
         self.data = None
 
-    def get_stocks(self):
-        return self.repository.get_stocks()
+    def get_stocks(self, page, limit):
+        return self.repository.get_stocks(page, limit)
     
-    def get_stock_data(self, stock_name):
+    def get_stock_data(self, stock_name, page, limit):
         if self.data is None:
             return []
         
         if self.data[stock_name] is None:
             return []
         
-        return self.data[stock_name]
+        start = (page - 1) * limit
+        end = start + limit
+        result = self.data[stock_name].iloc[start:end]
+        
+        return result
 
     def processed_all_data(self):
         self.orderbook_repository = OrderbookRepository(is_init=True)
