@@ -18,8 +18,6 @@ class StockRepository:
             stocks = StockDB.query.order_by(StockDB.id).all()
         
         return stocks
-        
-
 
     def get_stocks(self, page, limit):
         offset = (page-1) * limit
@@ -28,7 +26,7 @@ class StockRepository:
             stocks = [stock.to_dict() for stock in StockDB.query.order_by(StockDB.id).offset(offset).limit(limit).all()]
         
         for stock in stocks:
-            stock_df = self.stocks.get(stock['code'])
+            stock_df = self.stock.get(stock['code'])
             if stock_df is None:
                 stock["current_price"] = 0
                 continue

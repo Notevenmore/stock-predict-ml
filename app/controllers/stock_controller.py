@@ -16,8 +16,8 @@ class StockController:
             data=data
         ))
     
-    def get_stock_data(self, stock_name, page, limit, range_days):
-        data = self.model.get_stock_data(stock_name, page, limit, range_days)
+    def get_stock_data(self, stock_name, range_days):
+        data = self.model.get_stock_data(stock_name, range_days)
         return jsonify(response.success_response(
             message=f"Berhasil mendapatkan data saham {stock_name}", 
             data=data

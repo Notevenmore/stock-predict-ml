@@ -28,9 +28,10 @@ class StockModel:
             ihsg['Date'] = pd.to_datetime(ihsg['Date'])
         
         last_date = ihsg['Date'].max()
-        start_date = last_date - pd.Timedelta(days=range_days)
+        start_date = last_date - pd.Timedelta(days=range_days) 
         filtered_ihsg = ihsg[ihsg['Date'] >= start_date]
         filtered_ihsg = filtered_ihsg.rename(columns={'Date': 'date'})
+        filtered_ihsg['date'] = filtered_ihsg['date'].dt.strftime("%Y-%m-%d")
 
         result = []
         for _, filtered in filtered_ihsg.iterrows():
@@ -38,8 +39,7 @@ class StockModel:
 
         return result
 
-
-    def get_stock_data(self, stock_name, page, limit, range_days):
+    def get_stock_data(self, stock_name, range_days):
         if stock_name.lower() == "ihsg":
             result = self.get_ihsg_data(range_days)
             data = {
@@ -53,21 +53,24 @@ class StockModel:
         if self.data[stock_name.upper()] is None:
             return []
         
-        start = (page - 1) * limit
-        end = start + limit
-        total = len(self.data[stock_name.upper()])
-        result = self.data[stock_name.upper()].iloc[start:end]
+        data = self.data[stock_name.upper()]
         
+        if not pd.api.types.is_datetime64_any_dtype(data['date']):
+            data['date'] = pd.to_datetime(data['date'])
+        
+        last_date = data['date'].max()
+        start_date = last_date - pd.Timedelta(days=range_days) 
+        filtered_data = data[data['date'] >= start_date]
+        filtered_data['date'] = filtered_data['date'].dt.strftime("%Y-%m-%d")
+        
+        filtered_data = filtered_data[["date", "Close", "High", "Low", "Open", "Volume", "value", "offer_value", "bid_value", "bid_volume", "offer_volume", "foreign_sell", "foreign_buy"]]
+
         result_dict = []
-        for _, row in result.iterrows():
+        for _, row in filtered_data.iterrows():
             result_dict.append(row.to_dict())
 
         data = {
             "stock_data": result_dict,
-            "page": page,
-            "limit": limit,
-            "total": total,
-            "has_next": start + limit < total
         }
         
         return data
