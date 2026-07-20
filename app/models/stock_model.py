@@ -15,18 +15,62 @@ class StockModel:
     def get_stocks(self, page, limit):
         return self.repository.get_stocks(page, limit)
     
-    def get_stock_data(self, stock_name, page, limit):
+    def get_ihsg_data(self, range_days):
+        ihsg = self.repository.ihsg
+
+        if ihsg is None:
+            return []
+        
+        if ihsg.empty:
+            return []
+        
+        if not pd.api.types.is_datetime64_any_dtype(ihsg['Date']):
+            ihsg['Date'] = pd.to_datetime(ihsg['Date'])
+        
+        last_date = ihsg['Date'].max()
+        start_date = last_date - pd.Timedelta(days=range_days)
+        filtered_ihsg = ihsg[ihsg['Date'] >= start_date]
+        filtered_ihsg = filtered_ihsg.rename(columns={'Date': 'date'})
+
+        result = []
+        for _, filtered in filtered_ihsg.iterrows():
+            result.append(filtered.to_dict())
+
+        return result
+
+
+    def get_stock_data(self, stock_name, page, limit, range_days):
+        if stock_name.lower() == "ihsg":
+            result = self.get_ihsg_data(range_days)
+            data = {
+                "stock_data": result
+            }
+            return data
+
         if self.data is None:
             return []
         
-        if self.data[stock_name] is None:
+        if self.data[stock_name.upper()] is None:
             return []
         
         start = (page - 1) * limit
         end = start + limit
-        result = self.data[stock_name].iloc[start:end]
+        total = len(self.data[stock_name.upper()])
+        result = self.data[stock_name.upper()].iloc[start:end]
         
-        return result
+        result_dict = []
+        for _, row in result.iterrows():
+            result_dict.append(row.to_dict())
+
+        data = {
+            "stock_data": result_dict,
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "has_next": start + limit < total
+        }
+        
+        return data
 
     def processed_all_data(self):
         self.orderbook_repository = OrderbookRepository(is_init=True)
@@ -39,7 +83,7 @@ class StockModel:
         self.processed_data_repository.load_embedded_data()
 
         if self.processed_data_repository.processed_news is not None and self.orderbook_repository.orderbook is not None :
-            stock_list = self.repository.get_stocks()
+            stock_list = self.repository.get_all_stocks()
             with app.app_context():
                 stocks = [
                     stock.code for stock in stock_list

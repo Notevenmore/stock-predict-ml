@@ -24,5 +24,6 @@ def get_list_stock():
 def get_stock_data(stock_name):
     page = int(request.args.get("page", 1))
     limit = int(request.args.get("limit", 50))
+    range_days = int(request.args.get("range", 1))
 
-    return stock_controller.get_stock_data(stock_name, page, limit)
+    return stock_controller.get_stock_data(stock_name, page, limit, range_days)

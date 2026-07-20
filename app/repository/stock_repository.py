@@ -12,6 +12,14 @@ class StockRepository:
         if is_init:
             self.load_ohlcv()
             self.load_ihsg()
+    
+    def get_all_stocks(self):
+        with app.app_context():
+            stocks = StockDB.query.order_by(StockDB.id).all()
+        
+        return stocks
+        
+
 
     def get_stocks(self, page, limit):
         offset = (page-1) * limit
