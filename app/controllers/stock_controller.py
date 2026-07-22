@@ -10,18 +10,40 @@ class StockController:
         self.service = Service()
 
     def get_stock(self, page, limit):
-        data = self.model.get_stocks(page, limit)
-        return jsonify(response.success_response(
-            message="Berhasil mendapatkan data daftar saham", 
-            data=data
-        ))
+        try:
+            data = self.model.get_stocks(page, limit)
+            return jsonify(response.success_response(
+                message="Berhasil mendapatkan data daftar saham", 
+                data=data
+            ))
+        except Exception as e:
+            return jsonify(response.error_response(
+                message=f"Gagal mendapatkan data daftar saham: {e}. Traceback: {traceback.print_exc()}"
+            ))
     
     def get_stock_data(self, stock_name, range_days):
-        data = self.model.get_stock_data(stock_name, range_days)
-        return jsonify(response.success_response(
-            message=f"Berhasil mendapatkan data saham {stock_name}", 
-            data=data
-        ))
+        try:
+            data = self.model.get_stock_data(stock_name, range_days)
+            return jsonify(response.success_response(
+                message=f"Berhasil mendapatkan data saham {stock_name}", 
+                data=data
+            ))
+        except Exception as e:
+            return jsonify(response.error_response(
+                message=f"Gagal mendapatkan data saham {stock_name}: {e}. Traceback: {traceback.print_exc()}"
+            ))
+    
+    def get_all_stock_data(self, stock_name):
+        try:
+            result = self.model.get_all_stock_data(stock_name)
+            return jsonify(response.success_response(
+                message=f"Berhasil mendapatkan data saham {stock_name}", 
+                data=result
+            ))
+        except Exception as e:
+            return jsonify(response.error_response(
+                message=f"Gagal mendapatkan data saham {stock_name}: {e}. Traceback: {traceback.print_exc()}"
+            ))
     
     def update_all_stock_data(self):
         try:
@@ -41,9 +63,7 @@ class StockController:
                 data=[]
             ))
         except Exception as e:
-            traceback.print_exc()
-            
             return jsonify(response.error_response(
                 code=500,
-                message=f"Gagal update seluruh data saham: {e}",
+                message=f"Gagal update seluruh data saham: {e} -> {traceback.print_exc()}",
             ))

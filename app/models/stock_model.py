@@ -74,7 +74,7 @@ class StockModel:
         }
         
         return data
-
+        
     def processed_all_data(self):
         self.orderbook_repository = OrderbookRepository(is_init=True)
         self.processed_data_repository = ProcessedDataRepository(is_init=True)
@@ -114,6 +114,26 @@ class StockModel:
             self.data[stock_name][numeric_cols] = self.data[stock_name][numeric_cols].fillna(0)
         else:
             self.data[stock_name] = None
+    
+    def get_all_stock_data(self, stock_name):
+        if self.data is None:
+            return []
+        
+        if self.data[stock_name.upper()] is None:
+            return []
+        
+        data = self.data[stock_name.upper()]
+
+        if not pd.api.types.is_datetime64_any_dtype(data['date']):
+            data['date'] = pd.to_datetime(data['date'])
+            
+        data['date'] = data['date'].dt.strftime("%Y-%m-%d")
+
+        result = []
+        for _, filtered in data.iterrows():
+            result.append(filtered.to_dict())
+
+        return result
 
     def load_routine_stock(self):
         self.repository.save_ohlcv()

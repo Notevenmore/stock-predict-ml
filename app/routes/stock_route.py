@@ -5,8 +5,6 @@ stock_bp = Blueprint('stock', __name__, url_prefix='/stock')
 stock_controller = StockController()
 
 def initialize():
-    stock_controller.model.repository.load_ohlcv()
-    stock_controller.model.repository.load_ihsg()
     stock_controller.model.processed_all_data()
 
 @stock_bp.route("", methods=["PUT"])
@@ -28,5 +26,8 @@ def get_stock_data(stock_name):
     return stock_controller.get_stock_data(stock_name, range_days)
 
 # ML Server Route Only
+@stock_bp.route("/ml/<stock_name>", methods=['GET'])
+def get_all_stock_data(stock_name):
+    return stock_controller.get_all_stock_data(stock_name)
 
 # Admin Server Route Only
