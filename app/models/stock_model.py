@@ -63,7 +63,7 @@ class StockModel:
         filtered_data = data[data['date'] >= start_date]
         filtered_data['date'] = filtered_data['date'].dt.strftime("%Y-%m-%d")
         
-        filtered_data = filtered_data[["date", "Close", "High", "Low", "Open", "Volume", "value", "offer_value", "bid_value", "bid_volume", "offer_volume", "foreign_sell", "foreign_buy"]]
+        filtered_data = filtered_data[["date", "Close", "High", "Low", "Open", "Volume", "value", "offer_value", "bid_value", "bid_volume", "offer_volume", "foreign_sell", "foreign_buy", "sma5", "sma20", "sma50", "sma100", "wma5", "wma20", "wma50", "wma100", "ema5", "ema20", "ema50", "ema100", "lb_bolinger", "mb_bolinger", "ub_bolinger", "percent_bolinger", "return", "return_num", "macd_line", "macd_signal", "macd_hist", "rsi", "stoch_rsi_k%", "stoch_rsi_d%", "psar"]]
 
         result_dict = []
         for _, row in filtered_data.iterrows():
